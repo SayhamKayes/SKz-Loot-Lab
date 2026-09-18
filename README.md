@@ -85,35 +85,35 @@ The platform is powered by **TanStack Start**, **React 19**, and a **PostgreSQL*
 
 ```mermaid
 graph TD
-    Client[End-User / Gamer Browser] -->|Browse Storefront & Top-Ups| PublicRoutes["Public Routes (/, /products, /product/:slug)"]
-    Client -->|Clicks Account Button| UserPanel["User Panel (/user)"]
-    Admin[Admin Manager] -->|Direct URL Login| AdminPanel["Admin Security Portal (/admin)"]
+    Client["End-User / Gamer Browser"] -->|"Browse Storefront & Top-Ups"| PublicRoutes["Public Routes (/, /products, /product/:slug)"]
+    Client -->|"Clicks Account Button"| UserPanel["User Panel (/user)"]
+    Admin["Admin Manager"] -->|"Direct URL Login"| AdminPanel["Admin Security Portal (/admin)"]
 
-    subgraph Client-Side State
-        UserPanel --> AuthContext[AuthContext / useAuth]
+    subgraph ClientSideState["Client-Side State"]
+        UserPanel --> AuthContext["AuthContext / useAuth"]
         AdminPanel --> AuthContext
-        AuthContext --> LocalStorage[localStorage Tokens]
+        AuthContext --> LocalStorage["localStorage Tokens"]
     end
 
-    subgraph TanStack Start Full-Stack Layer
-        PublicRoutes --> RPC[Type-Safe Server Functions RPC /src/api]
+    subgraph FullStackLayer["TanStack Start Full-Stack Layer"]
+        PublicRoutes --> RPC["Type-Safe Server Functions RPC (/src/api)"]
         UserPanel --> RPC
         AdminPanel --> RPC
     end
 
-    subgraph Server & Business Logic Layer
-        RPC --> AuthEngine[Auth & Session Engine (JWT + bcryptjs)]
-        RPC --> GameService[Games & Coin Packages CMS]
-        RPC --> OrderService[Order Placement & State Engine]
-        RPC --> SettingsService[MFS Settings Service]
+    subgraph BusinessLogicLayer["Server & Business Logic Layer"]
+        RPC --> AuthEngine["Auth & Session Engine (JWT + bcryptjs)"]
+        RPC --> GameService["Games & Coin Packages CMS"]
+        RPC --> OrderService["Order Placement & State Engine"]
+        RPC --> SettingsService["MFS Settings Service"]
     end
 
-    subgraph Database Layer
-        AuthEngine --> PostgresPool[(PostgreSQL Connection Pool)]
+    subgraph DatabaseLayer["Database Layer"]
+        AuthEngine --> PostgresPool[("PostgreSQL Connection Pool")]
         GameService --> PostgresPool
         OrderService --> PostgresPool
         SettingsService --> PostgresPool
-        PostgresPool --> Tables[users | games | game_packages | orders | settings]
+        PostgresPool --> Tables["users | games | game_packages | orders | settings"]
     end
 ```
 
@@ -124,11 +124,11 @@ graph TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Customer as Gamer (Customer)
-    participant UI as Product / Checkout UI
-    participant Server as TanStack Start RPC (/src/api)
-    participant DB as PostgreSQL Database
-    actor Admin as Admin Manager
+    actor Customer as "Gamer (Customer)"
+    participant UI as "Product / Checkout UI"
+    participant Server as "TanStack Start RPC (/src/api)"
+    participant DB as "PostgreSQL Database"
+    actor Admin as "Admin Manager"
     
     Customer->>UI: Selects game (e.g., PUBG Mobile 660 UC)
     Customer->>UI: Enters Player ID & Contact Info
