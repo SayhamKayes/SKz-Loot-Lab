@@ -3,9 +3,14 @@ import jwt from "jsonwebtoken";
 import { query, initDatabase, checkDbStatus } from "./db";
 import { games as staticGames, Game, Package } from "../lib/games";
 
-const JWT_SECRET = process.env.SESSION_SECRET || "skz_jwt_default_secret_key_2026";
-const ADMIN_USER = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASSWORD || "Admin@SKzLab2026#";
+function cleanEnv(val: string | undefined, fallback: string): string {
+  if (!val) return fallback;
+  return val.trim().replace(/^["']|["']$/g, "");
+}
+
+const JWT_SECRET = cleanEnv(process.env.SESSION_SECRET, "skz_jwt_default_secret_key_2026");
+const ADMIN_USER = cleanEnv(process.env.ADMIN_USERNAME, "admin");
+const ADMIN_PASS = cleanEnv(process.env.ADMIN_PASSWORD, "Admin@SKzLab2026#");
 
 export interface OrderData {
   id: string;
@@ -265,9 +270,13 @@ export async function adminLogin(params: {
   password: string;
 }): Promise<{ success: boolean; token?: string; error?: string }> {
   const { username, password } = params;
+  const inputUser = (username || "").trim().toLowerCase();
+  const inputPass = (password || "").trim();
+  const targetUser = ADMIN_USER.trim().toLowerCase();
+  const targetPass = ADMIN_PASS.trim();
 
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign({ role: "admin", username }, JWT_SECRET, { expiresIn: "7d" });
+  if (inputUser === targetUser && inputPass === targetPass) {
+    const token = jwt.sign({ role: "admin", username: ADMIN_USER }, JWT_SECRET, { expiresIn: "7d" });
     return { success: true, token };
   }
 

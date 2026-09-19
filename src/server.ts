@@ -66,14 +66,34 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+function isApiOrServerFnRequest(request: Request): boolean {
+  const url = request.url || "";
+  const accept = request.headers.get("accept") || "";
+  return (
+    url.includes("/_serverFn") ||
+    url.includes("/api/") ||
+    accept.includes("application/json") ||
+    Boolean(request.headers.get("x-ts-server-fn"))
+  );
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
+      if (isApiOrServerFnRequest(request)) {
+        return response;
+      }
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
+      if (isApiOrServerFnRequest(request)) {
+        return new Response(JSON.stringify({ error: (error as any)?.message || "Internal Server Error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
       return brandedErrorResponse();
     }
   },

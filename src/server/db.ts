@@ -4,7 +4,8 @@ import { games as initialGames } from "../lib/games";
 
 const { Pool } = pg;
 
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/skstopup";
+const rawConnectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/skstopup";
+const connectionString = rawConnectionString.trim().replace(/^["']|["']$/g, "");
 const isCloudPostgres = connectionString.includes("sslmode=require") || connectionString.includes("neon.tech") || connectionString.includes("supabase.co");
 
 let pool: pg.Pool | null = null;
