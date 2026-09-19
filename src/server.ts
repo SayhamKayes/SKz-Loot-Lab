@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import * as serverApi from "./server/api";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -80,6 +81,40 @@ function isApiOrServerFnRequest(request: Request): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+
+      if (url.pathname === "/api/health") {
+        return new Response(
+          JSON.stringify({
+            status: "ok",
+            version: "v2026.09.20.1",
+            hasDbUrl: Boolean(process.env.DATABASE_URL || process.env["DATABASE URL"] || (env as any)?.DATABASE_URL),
+            hasAdminPass: Boolean(process.env.ADMIN_PASSWORD || (env as any)?.ADMIN_PASSWORD),
+            adminUser: process.env.ADMIN_USERNAME || (env as any)?.ADMIN_USERNAME || "admin",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        );
+      }
+
+      if (url.pathname === "/api/admin-login" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const result = await serverApi.adminLogin(body);
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        } catch (err: any) {
+          return new Response(JSON.stringify({ success: false, error: err?.message || "Login failed" }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          });
+        }
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       if (isApiOrServerFnRequest(request)) {

@@ -131,6 +131,9 @@ function sanitizeError(err: any, fallback: string): string {
   };
 
   const adminLoginHandler = async (username: string, pass: string) => {
+    let lastError = "";
+
+    // 1. Attempt RPC call
     try {
       const res = await adminLoginFn({ data: { username, password: pass } });
       if (res?.success && res?.token) {
@@ -139,10 +142,35 @@ function sanitizeError(err: any, fallback: string): string {
         localStorage.setItem("skz_admin_token", res.token);
         return { success: true };
       }
-      return { success: false, error: res?.error || "Invalid Admin Username or Password" };
+      if (res?.error) {
+        lastError = res.error;
+      }
     } catch (err: any) {
-      return { success: false, error: sanitizeError(err, "Admin login error") };
+      lastError = sanitizeError(err, "");
     }
+
+    // 2. Direct REST API fallback (/api/admin-login)
+    try {
+      const resp = await fetch("/api/admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password: pass }),
+      });
+      const data = await resp.json();
+      if (data?.success && data?.token) {
+        setAdminToken(data.token);
+        setIsAdmin(true);
+        localStorage.setItem("skz_admin_token", data.token);
+        return { success: true };
+      }
+      if (data?.error) {
+        return { success: false, error: data.error };
+      }
+    } catch (err: any) {
+      console.warn("Direct /api/admin-login fallback error:", err);
+    }
+
+    return { success: false, error: lastError || "Invalid Admin Username or Password" };
   };
 
   const adminLogoutHandler = () => {
