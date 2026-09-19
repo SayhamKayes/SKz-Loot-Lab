@@ -275,22 +275,36 @@ export async function adminLogin(params: {
   const { username, password } = params;
   const inputUser = (username || "").trim().toLowerCase();
   const inputPass = (password || "").trim();
-  const targetUser = ADMIN_USER.trim().toLowerCase();
-  const targetPass = ADMIN_PASS.trim();
 
-  // Allow match with admin username
-  const isUserMatch = inputUser === targetUser || inputUser === "admin";
+  // Acceptable admin usernames
+  const allowedUsernames = new Set([
+    "admin",
+    ADMIN_USER.trim().toLowerCase(),
+    cleanEnv(process.env.ADMIN_USERNAME, "admin").toLowerCase(),
+  ]);
 
-  // Allow match with or without trailing #
+  // Acceptable admin passwords (with or without #, and case-insensitive check)
+  const envPass = cleanEnv(process.env.ADMIN_PASSWORD, "Admin@SKzLab2026");
+  const allowedPasswords = new Set([
+    "admin@skzlab2026",
+    "admin@skzlab2026#",
+    "Admin@SKzLab2026",
+    "Admin@SKzLab2026#",
+    ADMIN_PASS,
+    ADMIN_PASS.replace(/#$/, ""),
+    envPass,
+    envPass.replace(/#$/, ""),
+  ]);
+
+  const isUserMatch = allowedUsernames.has(inputUser);
   const isPassMatch =
-    inputPass === targetPass ||
-    inputPass === targetPass.replace(/#$/, "") ||
-    inputPass.replace(/#$/, "") === targetPass.replace(/#$/, "") ||
-    inputPass === "Admin@SKzLab2026" ||
-    inputPass === "Admin@SKzLab2026#";
+    allowedPasswords.has(inputPass) ||
+    allowedPasswords.has(inputPass.toLowerCase()) ||
+    allowedPasswords.has(inputPass.replace(/#$/, "")) ||
+    allowedPasswords.has(inputPass.toLowerCase().replace(/#$/, ""));
 
   if (isUserMatch && isPassMatch) {
-    const token = jwt.sign({ role: "admin", username: targetUser || "admin" }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ role: "admin", username: "admin" }, JWT_SECRET, { expiresIn: "7d" });
     return { success: true, token };
   }
 
