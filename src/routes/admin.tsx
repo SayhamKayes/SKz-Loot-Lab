@@ -29,6 +29,8 @@ import {
   LayoutDashboard,
   ArrowRight,
   TrendingUp,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -59,6 +61,7 @@ function AdminPage() {
   // Admin login form state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -370,17 +373,29 @@ function AdminPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Master Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Master Password</label>
+                <span className="text-[10px] text-slate-500 font-mono">From .env</span>
+              </div>
               <div className="relative mt-1.5">
                 <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                 <input
                   required
-                  type="password"
-                  placeholder="••••••••••••"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Admin@SKzLab2026#"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-red-500"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 pl-10 pr-10 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-white transition"
+                  tabIndex={-1}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
