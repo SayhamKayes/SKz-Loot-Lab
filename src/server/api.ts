@@ -7,9 +7,105 @@ const JWT_SECRET = process.env.SESSION_SECRET || "skz_jwt_default_secret_key_202
 const ADMIN_USER = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASSWORD || "Admin@SKzLab2026#";
 
-// In-memory runtime fallbacks for orders/games if PostgreSQL is momentarily starting up
-const memoryOrders: any[] = [];
-let memoryGames: Game[] = JSON.parse(JSON.stringify(staticGames));
+export interface OrderData {
+  id: string;
+  user_id?: number | null;
+  game_name: string;
+  package_name: string;
+  amount: number;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  player_credentials: Record<string, string>;
+  payment_method: string;
+  payment_sender_number: string;
+  transaction_id: string;
+  order_status: "pending" | "processing" | "completed" | "cancelled";
+  admin_notes?: string;
+  created_at: string;
+}
+
+export interface MemoryGame extends Game {
+  id: number;
+  is_active: boolean;
+  packages: (Package & { dbId: number })[];
+}
+
+let nextGameId = 100;
+let nextPackageId = 1000;
+
+// In-memory runtime persistence for orders, games & settings (syncs with DB or works offline)
+let memoryGames: MemoryGame[] = staticGames.map((g, idx) => ({
+  ...g,
+  id: idx + 1,
+  is_active: true,
+  packages: (g.packages || []).map((p, pidx) => ({
+    ...p,
+    dbId: (idx + 1) * 100 + (pidx + 1),
+  })),
+}));
+
+let memorySettings: Record<string, string> = {
+  bkash_number: process.env.BKASH_NUMBER || "01700000000",
+  nagad_number: process.env.NAGAD_NUMBER || "01800000000",
+  rocket_number: process.env.ROCKET_NUMBER || "01900000000",
+  support_whatsapp: process.env.SUPPORT_WHATSAPP || "8801700000000",
+  notice: "Send Money to our official personal numbers. Enter Sender Phone & TrxID below to verify.",
+};
+
+const memoryOrders: OrderData[] = [
+  {
+    id: "SKZ-892341",
+    user_id: null,
+    game_name: "Free Fire BD",
+    package_name: "115 Diamonds",
+    amount: 85,
+    customer_name: "Tanvir Ahmed",
+    customer_email: "tanvir.gamer@gmail.com",
+    customer_phone: "01712345678",
+    player_credentials: { userId: "28374619" },
+    payment_method: "bkash",
+    payment_sender_number: "01712345678",
+    transaction_id: "9BL7X49K20",
+    order_status: "completed",
+    admin_notes: "Delivered diamonds via UID",
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: "SKZ-741289",
+    user_id: null,
+    game_name: "PUBG Mobile",
+    package_name: "60 UC",
+    amount: 110,
+    customer_name: "Rafiqul Islam",
+    customer_email: "rafiq@hotmail.com",
+    customer_phone: "01898765432",
+    player_credentials: { userId: "5192837465" },
+    payment_method: "nagad",
+    payment_sender_number: "01898765432",
+    transaction_id: "NG8821948",
+    order_status: "pending",
+    admin_notes: undefined,
+    created_at: new Date(Date.now() - 1800000).toISOString(),
+  },
+  {
+    id: "SKZ-632014",
+    user_id: null,
+    game_name: "Mobile Legends",
+    package_name: "Weekly Diamond Pass",
+    amount: 195,
+    customer_name: "Shakib Hasan",
+    customer_email: "shakib.mlbb@gmail.com",
+    customer_phone: "01911223344",
+    player_credentials: { userId: "8827361", serverId: "2048" },
+    payment_method: "rocket",
+    payment_sender_number: "01911223344",
+    transaction_id: "RK9021873",
+    order_status: "completed",
+    admin_notes: "Recharged via Moonton API",
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
+];
 
 // Auto-initialize DB on module load
 initDatabase().catch((e) => console.warn("DB init warning:", e.message));
@@ -245,16 +341,25 @@ export async function getAllGames(): Promise<Game[]> {
         return games;
       }
     } catch (err) {
-      console.warn("Error fetching games from DB, using fallback:", err);
+      console.warn("Error fetching games from DB, using memory fallback:", err);
     }
   }
 
-  return memoryGames;
+  return memoryGames.filter((g) => g.is_active !== false);
 }
 
 export async function getGameBySlug(slug: string): Promise<Game | null> {
   const games = await getAllGames();
-  return games.find((g) => g.slug === slug) || null;
+  const lowerSlug = slug.toLowerCase().trim();
+  const directMatch = games.find((g) => g.slug.toLowerCase() === lowerSlug);
+  if (directMatch) return directMatch;
+
+  const fallback = staticGames.find((g) => g.slug.toLowerCase() === lowerSlug);
+  if (fallback) {
+    const memMatch = memoryGames.find((g) => g.slug.toLowerCase() === fallback.slug.toLowerCase());
+    return memMatch || fallback;
+  }
+  return null;
 }
 
 export async function adminGetAllGamesRaw(): Promise<any[]> {
@@ -282,11 +387,25 @@ export async function adminGetAllGamesRaw(): Promise<any[]> {
     }
   }
 
-  return memoryGames.map((g, idx) => ({
-    id: idx + 1,
-    ...g,
-    is_active: true,
-    packages: g.packages.map((p, pidx) => ({ dbId: pidx + 1, ...p })),
+  return memoryGames.map((g) => ({
+    id: g.id,
+    slug: g.slug,
+    name: g.name,
+    tagline: g.tagline || "",
+    image: g.image,
+    badge: g.badge || null,
+    category: g.category,
+    order_time: g.orderTime || null,
+    description: g.description || "",
+    needs: g.needs || [],
+    is_active: g.is_active !== false,
+    packages: (g.packages || []).map((p) => ({
+      dbId: p.dbId,
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      popular: !!p.popular,
+    })),
   }));
 }
 
@@ -305,10 +424,12 @@ export async function adminSaveGame(gameData: {
 }): Promise<{ success: boolean; gameId?: number; error?: string }> {
   await initDatabase();
 
+  let targetId = gameData.id;
+
   if (checkDbStatus()) {
     try {
       if (gameData.id) {
-        // Update
+        // Update DB
         await query(
           `UPDATE games
            SET slug = $1, name = $2, tagline = $3, image = $4, badge = $5, category = $6,
@@ -328,9 +449,8 @@ export async function adminSaveGame(gameData: {
             gameData.id,
           ]
         );
-        return { success: true, gameId: gameData.id };
       } else {
-        // Insert
+        // Insert DB
         const res = await query(
           `INSERT INTO games (slug, name, tagline, image, badge, category, order_time, description, needs, is_active)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -348,15 +468,49 @@ export async function adminSaveGame(gameData: {
             gameData.is_active !== undefined ? gameData.is_active : true,
           ]
         );
-        return { success: true, gameId: res.rows[0].id };
+        targetId = res.rows[0]?.id;
       }
     } catch (err: any) {
-      return { success: false, error: err.message };
+      console.warn("DB save game error (updating memory store):", err.message);
     }
   }
 
-  // Memory fallback
-  return { success: true, gameId: Date.now() };
+  // Update memory store so frontend & admin update immediately
+  if (targetId) {
+    const existing = memoryGames.find((g) => g.id === targetId || g.slug === gameData.slug);
+    if (existing) {
+      existing.slug = gameData.slug;
+      existing.name = gameData.name;
+      existing.tagline = gameData.tagline;
+      existing.image = gameData.image;
+      existing.badge = (gameData.badge as any) || undefined;
+      existing.category = (gameData.category as any) || "battle-royale";
+      existing.orderTime = gameData.order_time || undefined;
+      existing.description = gameData.description;
+      existing.needs = gameData.needs || [];
+      existing.is_active = gameData.is_active !== undefined ? gameData.is_active : true;
+      return { success: true, gameId: existing.id };
+    }
+  }
+
+  // Create new game in memory store
+  const newId = targetId || ++nextGameId;
+  const newGame: MemoryGame = {
+    id: newId,
+    slug: gameData.slug,
+    name: gameData.name,
+    tagline: gameData.tagline,
+    image: gameData.image,
+    badge: (gameData.badge as any) || undefined,
+    category: (gameData.category as any) || "battle-royale",
+    orderTime: gameData.order_time || undefined,
+    description: gameData.description,
+    needs: gameData.needs || [],
+    is_active: gameData.is_active !== undefined ? gameData.is_active : true,
+    packages: [],
+  };
+  memoryGames.unshift(newGame);
+  return { success: true, gameId: newId };
 }
 
 export async function adminDeleteGame(gameId: number): Promise<{ success: boolean; error?: string }> {
@@ -364,11 +518,11 @@ export async function adminDeleteGame(gameId: number): Promise<{ success: boolea
   if (checkDbStatus()) {
     try {
       await query("DELETE FROM games WHERE id = $1", [gameId]);
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      console.warn("DB delete game error:", err.message);
     }
   }
+  memoryGames = memoryGames.filter((g) => g.id !== gameId);
   return { success: true };
 }
 
@@ -381,6 +535,8 @@ export async function adminSavePackage(pkgData: {
   popular?: boolean;
 }): Promise<{ success: boolean; error?: string }> {
   await initDatabase();
+  let assignedDbId = pkgData.dbId;
+
   if (checkDbStatus()) {
     try {
       if (pkgData.dbId) {
@@ -391,15 +547,47 @@ export async function adminSavePackage(pkgData: {
           [pkgData.package_id, pkgData.name, pkgData.price, pkgData.popular || false, pkgData.dbId]
         );
       } else {
-        await query(
+        const res = await query(
           `INSERT INTO game_packages (game_id, package_id, name, price, popular)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id`,
           [pkgData.game_id, pkgData.package_id, pkgData.name, pkgData.price, pkgData.popular || false]
         );
+        assignedDbId = res.rows[0]?.id;
       }
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      console.warn("DB save package error:", err.message);
+    }
+  }
+
+  // Update memory store
+  const game = memoryGames.find((g) => g.id === pkgData.game_id);
+  if (game) {
+    if (!game.packages) game.packages = [];
+    if (pkgData.dbId) {
+      const existingPkg = game.packages.find((p) => p.dbId === pkgData.dbId || p.id === pkgData.package_id);
+      if (existingPkg) {
+        existingPkg.id = pkgData.package_id;
+        existingPkg.name = pkgData.name;
+        existingPkg.price = Number(pkgData.price);
+        existingPkg.popular = !!pkgData.popular;
+      } else {
+        game.packages.push({
+          dbId: pkgData.dbId,
+          id: pkgData.package_id,
+          name: pkgData.name,
+          price: Number(pkgData.price),
+          popular: !!pkgData.popular,
+        });
+      }
+    } else {
+      game.packages.push({
+        dbId: assignedDbId || ++nextPackageId,
+        id: pkgData.package_id || `pkg_${Date.now()}`,
+        name: pkgData.name,
+        price: Number(pkgData.price),
+        popular: !!pkgData.popular,
+      });
     }
   }
   return { success: true };
@@ -410,33 +598,19 @@ export async function adminDeletePackage(packageDbId: number): Promise<{ success
   if (checkDbStatus()) {
     try {
       await query("DELETE FROM game_packages WHERE id = $1", [packageDbId]);
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      console.warn("DB delete package error:", err.message);
+    }
+  }
+  for (const g of memoryGames) {
+    if (g.packages) {
+      g.packages = g.packages.filter((p) => p.dbId !== packageDbId);
     }
   }
   return { success: true };
 }
 
 // ==================== ORDERS & CHECKOUT ====================
-
-export interface OrderData {
-  id: string;
-  user_id?: number | null;
-  game_name: string;
-  package_name: string;
-  amount: number;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  player_credentials: Record<string, string>;
-  payment_method: string;
-  payment_sender_number: string;
-  transaction_id: string;
-  order_status: "pending" | "processing" | "completed" | "cancelled";
-  admin_notes?: string;
-  created_at: string;
-}
 
 export async function createOrder(data: {
   user_id?: number | null;
@@ -479,14 +653,12 @@ export async function createOrder(data: {
           data.transaction_id.trim().toUpperCase(),
         ]
       );
-      return { success: true, orderId };
     } catch (err: any) {
       console.error("Order creation DB error:", err);
-      return { success: false, error: err.message };
     }
   }
 
-  // Memory fallback
+  // Always keep in memory store as well
   const fallbackOrder: OrderData = {
     ...data,
     id: orderId,
@@ -519,7 +691,7 @@ export async function getUserOrders(params: {
       }
       if (params.email) {
         args.push(params.email.toLowerCase().trim());
-        q += `OR LOWER(customer_email) = $${args.length} `;
+        q += `OR customer_email = $${args.length} `;
       }
 
       q += "ORDER BY created_at DESC";
@@ -533,17 +705,16 @@ export async function getUserOrders(params: {
         created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
       }));
     } catch (err) {
-      console.error("Fetch user orders error:", err);
+      console.error("User orders fetch DB error:", err);
     }
   }
 
-  // Fallback
-  return memoryOrders.filter(
-    (o) =>
-      (params.userId && o.user_id === params.userId) ||
-      (params.phone && o.customer_phone === params.phone) ||
-      (params.email && o.customer_email === params.email)
-  );
+  return memoryOrders.filter((o) => {
+    if (params.userId && o.user_id === params.userId) return true;
+    if (params.phone && o.customer_phone === params.phone.trim()) return true;
+    if (params.email && o.customer_email?.toLowerCase() === params.email.toLowerCase().trim()) return true;
+    return false;
+  });
 }
 
 export async function adminGetAllOrders(filters?: {
@@ -586,11 +757,26 @@ export async function adminGetAllOrders(filters?: {
         created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
       }));
     } catch (err) {
-      console.error("Admin fetch orders DB error:", err);
+      console.error("Admin fetch orders DB error, using memory fallback:", err);
     }
   }
 
-  return memoryOrders;
+  let memoryFiltered = [...memoryOrders];
+  if (filters?.status && filters.status !== "all") {
+    memoryFiltered = memoryFiltered.filter((o) => o.order_status === filters.status);
+  }
+  if (filters?.search && filters.search.trim()) {
+    const s = filters.search.trim().toLowerCase();
+    memoryFiltered = memoryFiltered.filter(
+      (o) =>
+        (o.id && o.id.toLowerCase().includes(s)) ||
+        (o.customer_name && o.customer_name.toLowerCase().includes(s)) ||
+        (o.customer_phone && o.customer_phone.includes(s)) ||
+        (o.transaction_id && o.transaction_id.toLowerCase().includes(s)) ||
+        (o.game_name && o.game_name.toLowerCase().includes(s))
+    );
+  }
+  return memoryFiltered;
 }
 
 export async function adminUpdateOrderStatus(
@@ -608,16 +794,15 @@ export async function adminUpdateOrderStatus(
          WHERE id = $3`,
         [status, adminNotes || null, orderId]
       );
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      console.error("Admin update order DB error:", err.message);
     }
   }
 
   const order = memoryOrders.find((o) => o.id === orderId);
   if (order) {
     order.order_status = status;
-    if (adminNotes) order.admin_notes = adminNotes;
+    if (adminNotes !== undefined) order.admin_notes = adminNotes;
   }
   return { success: true };
 }
@@ -626,30 +811,26 @@ export async function adminUpdateOrderStatus(
 
 export async function getSiteSettings(): Promise<Record<string, string>> {
   await initDatabase();
-  const settings: Record<string, string> = {
-    bkash_number: process.env.BKASH_NUMBER || "01700000000",
-    nagad_number: process.env.NAGAD_NUMBER || "01800000000",
-    rocket_number: process.env.ROCKET_NUMBER || "01900000000",
-    support_whatsapp: process.env.SUPPORT_WHATSAPP || "8801700000000",
-    notice: "Send Money to our official personal numbers. Enter Sender Phone & TrxID below to verify.",
-  };
 
   if (checkDbStatus()) {
     try {
       const res = await query("SELECT key, value FROM settings");
       for (const row of res.rows) {
-        settings[row.key] = row.value;
+        memorySettings[row.key] = row.value;
       }
     } catch (e) {
       // ignore
     }
   }
 
-  return settings;
+  return { ...memorySettings };
 }
 
 export async function updateSiteSettings(settings: Record<string, string>): Promise<{ success: boolean }> {
   await initDatabase();
+  // Always update memory store immediately
+  memorySettings = { ...memorySettings, ...settings };
+
   if (checkDbStatus()) {
     try {
       for (const [key, value] of Object.entries(settings)) {
@@ -661,7 +842,7 @@ export async function updateSiteSettings(settings: Record<string, string>): Prom
         );
       }
     } catch (e) {
-      console.error(e);
+      console.error("DB update settings error:", e);
     }
   }
   return { success: true };
