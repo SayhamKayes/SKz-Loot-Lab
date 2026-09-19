@@ -225,4 +225,41 @@ export const games: Game[] = [
   },
 ];
 
-export const getGame = (slug: string) => games.find((g) => g.slug === slug);
+export const getGame = (slug: string): Game | undefined => {
+  if (!slug) return undefined;
+  const s = slug.toLowerCase().trim();
+
+  // 1. Exact match
+  const exact = games.find((g) => g.slug.toLowerCase() === s);
+  if (exact) return exact;
+
+  // 2. Common aliases
+  const aliases: Record<string, string> = {
+    "free-fire": "free-fire-bd",
+    "freefire": "free-fire-bd",
+    "ff": "free-fire-bd",
+    "freefirebd": "free-fire-bd",
+    "pubg": "pubg-mobile",
+    "pubgm": "pubg-mobile",
+    "cod": "call-of-duty-mobile",
+    "codm": "call-of-duty-mobile",
+    "mlbb": "mobile-legends",
+    "ml": "mobile-legends",
+    "coc": "clash-of-clans",
+    "efootball": "e-football",
+    "pes": "e-football",
+    "g-coin": "pubg-g-coin",
+    "gcoin": "pubg-g-coin",
+    "bloodstrike": "blood-strike",
+    "deltaforce": "delta-force",
+  };
+
+  const aliasTarget = aliases[s];
+  if (aliasTarget) {
+    const aliased = games.find((g) => g.slug === aliasTarget);
+    if (aliased) return aliased;
+  }
+
+  // 3. Substring matching
+  return games.find((g) => g.slug.toLowerCase().includes(s) || s.includes(g.slug.toLowerCase()));
+};
