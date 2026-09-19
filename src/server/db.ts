@@ -18,7 +18,7 @@ export function getPool(): pg.Pool {
       ssl: isCloudPostgres ? { rejectUnauthorized: false } : false,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     });
 
     pool.on("error", (err) => {
@@ -34,8 +34,7 @@ export async function query<T extends pg.QueryResultRow = any>(text: string, par
 }
 
 export async function initDatabase(): Promise<boolean> {
-  if (initPromise) {
-    await initPromise;
+  if (initPromise && isDbConnected) {
     return isDbConnected;
   }
 
