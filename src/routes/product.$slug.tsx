@@ -24,20 +24,23 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
-import { getGame } from "@/lib/games";
+import { games, getGame } from "@/lib/games";
 import { getGameBySlugFn, createOrderFn, getSiteSettingsFn } from "@/api";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: async ({ params }) => {
+    const slug = params?.slug || "";
     try {
-      const dbGame = await getGameBySlugFn({ data: { slug: params.slug } });
-      if (dbGame) return { game: dbGame };
+      const dbGame = await getGameBySlugFn({ data: { slug } });
+      if (dbGame && dbGame.name && dbGame.packages?.length) {
+        return { game: dbGame };
+      }
     } catch (e) {
-      // fallback
+      // Fallback cleanly to static games catalog
     }
-    const fallback = getGame(params.slug);
-    if (!fallback) throw notFound();
-    return { game: fallback };
+    const fallback = getGame(slug);
+    if (fallback) return { game: fallback };
+    throw notFound();
   },
   head: ({ loaderData }) => {
     const g = loaderData?.game;
@@ -45,22 +48,51 @@ export const Route = createFileRoute("/product/$slug")({
       meta: g
         ? [
             { title: `${g.name} Top-Up — SKz Lab` },
-            { name: "description", content: `${g.name} ${g.tagline}. ${g.description}` },
+            { name: "description", content: `${g.name} ${g.tagline || ""}. ${g.description || ""}` },
             { property: "og:title", content: `${g.name} Top-Up — SKz Lab` },
-            { property: "og:description", content: g.description },
-            { property: "og:image", content: g.image },
+            { property: "og:description", content: g.description || "" },
+            { property: "og:image", content: g.image || "" },
           ]
         : [],
     };
   },
   component: ProductPage,
+  errorComponent: ({ reset }: { error: Error; reset: () => void }) => (
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
+      <Header />
+      <div className="mx-auto max-w-7xl px-6 py-24 text-center">
+        <h1 className="font-display text-4xl font-black">Something went wrong</h1>
+        <p className="mt-3 text-muted-foreground text-sm max-w-md mx-auto">
+          We couldn't load this top-up product right now. You can try refreshing or choose another game.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            onClick={() => reset()}
+            className="rounded-xl bg-gradient-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-glow hover:opacity-90 transition"
+          >
+            Try again
+          </button>
+          <Link
+            to="/"
+            className="rounded-xl border border-border bg-surface px-6 py-2.5 text-sm font-semibold hover:border-primary transition"
+          >
+            Back to all games
+          </Link>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  ),
   notFoundComponent: () => (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col justify-between">
       <Header />
       <div className="mx-auto max-w-7xl px-6 py-24 text-center">
         <h1 className="font-display text-4xl font-black">Game not found</h1>
-        <Link to="/" className="mt-6 inline-block text-primary font-semibold">
-          ← Back to home
+        <p className="mt-3 text-muted-foreground text-sm max-w-md mx-auto">
+          The game top-up you are looking for doesn't exist or has been moved.
+        </p>
+        <Link to="/" className="mt-6 inline-block text-primary font-semibold hover:underline">
+          ← Back to all games
         </Link>
       </div>
       <Footer />
@@ -69,11 +101,13 @@ export const Route = createFileRoute("/product/$slug")({
 });
 
 function ProductPage() {
-  const { game: initialGame } = Route.useLoaderData() as { game: any };
+  const loaderData = Route.useLoaderData() as { game?: any } | undefined;
+  const params = Route.useParams();
+  const initialGame = loaderData?.game || getGame(params?.slug) || games[0];
   const { user } = useAuth();
 
   const [game, setGame] = useState(initialGame);
-  const [selectedPkgId, setSelectedPkgId] = useState(initialGame.packages?.[0]?.id || "");
+  const [selectedPkgId, setSelectedPkgId] = useState(initialGame?.packages?.[0]?.id || "");
   const [settings, setSettings] = useState<Record<string, string>>({
     bkash_number: "01700000000",
     nagad_number: "01800000000",
@@ -116,6 +150,7 @@ function ProductPage() {
 
   // Load latest game & settings from database on mount
   useEffect(() => {
+    if (!initialGame?.slug) return;
     getGameBySlugFn({ data: { slug: initialGame.slug } })
       .then((g) => {
         if (g && g.packages?.length) {
@@ -132,10 +167,12 @@ function ProductPage() {
         if (s) setSettings(s);
       })
       .catch(() => {});
-  }, [initialGame.slug]);
+  }, [initialGame?.slug]);
 
   const activePackage =
-    game.packages?.find((p: any) => p.id === selectedPkgId) || game.packages?.[0] || { name: "Top-Up", price: 0 };
+    game?.packages?.find((p: any) => p.id === selectedPkgId) ||
+    game?.packages?.[0] ||
+    { id: "default", name: "Top-Up Package", price: 0 };
 
   const getMfsNumber = () => {
     if (formData.paymentMethod === "nagad") return settings.nagad_number || "01800000000";
