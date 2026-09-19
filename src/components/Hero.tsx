@@ -14,7 +14,7 @@ export const Hero = () => (
           <Zap className="h-3.5 w-3.5" /> Instant Delivery
         </span>
         <h1 className="mt-5 font-display text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
-          <span className="text-gradient-primary">SKZ LAB</span>
+          <span className="text-gradient-primary">SKz</span><span className="text-foreground">LOOT</span><span className="text-gradient-primary">LAB</span>
           <br />
           <span className="text-foreground">YOUR ULTIMATE GAMING HUB</span>
         </h1>
@@ -57,7 +57,7 @@ export const Hero = () => (
                 VERIFIED BY
               </div>
               <div className="mt-2 text-gradient-primary font-display text-4xl md:text-5xl font-black">
-                SKZ LAB
+                SKz<span className="text-foreground">LOOT</span><span className="text-gradient-primary">LAB</span>
               </div>
               <p className="mt-4 text-sm text-muted-foreground max-w-sm mx-auto">
                 Trusted by 50,000+ gamers across Bangladesh & beyond.
