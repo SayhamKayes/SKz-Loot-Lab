@@ -17,7 +17,12 @@ const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
 
     if (isRpcOrApi) {
       console.error("[Server Function Error]:", error);
-      throw error;
+      const errMsg = (error as any)?.message || String(error);
+      const errStack = (error as any)?.stack || "";
+      return new Response(JSON.stringify({ success: false, error: errMsg, stack: errStack, isServerFnError: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
 
     console.error(error);
