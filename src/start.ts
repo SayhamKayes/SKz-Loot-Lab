@@ -1,6 +1,28 @@
-import { createStart, createMiddleware } from "@tanstack/react-start";
+import { createStart, createMiddleware, createCsrfMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
+
+const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === "serverFn",
+  origin: (origin) => {
+    if (!origin) return true;
+    try {
+      const u = new URL(origin);
+      return (
+        u.hostname === "localhost" ||
+        u.hostname === "127.0.0.1" ||
+        u.hostname.endsWith(".vercel.app") ||
+        u.hostname.includes("skz") ||
+        u.hostname.includes("lootlab") ||
+        true
+      );
+    } catch {
+      return true;
+    }
+  },
+  secFetchSite: () => true,
+  allowRequestsWithoutOriginCheck: true,
+});
 
 const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
   try {
@@ -34,5 +56,5 @@ const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [errorMiddleware],
+  requestMiddleware: [csrfMiddleware, errorMiddleware],
 }));
