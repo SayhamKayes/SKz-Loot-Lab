@@ -4,7 +4,14 @@ import { games as initialGames } from "../lib/games";
 
 const { Pool } = pg;
 
-const rawConnectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/skstopup";
+const NEON_DEFAULT_URL = "postgresql://neondb_owner:npg_SRgK3HV8UfrM@ep-misty-sun-b3b8of53-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+
+const rawConnectionString =
+  process.env.DATABASE_URL ||
+  process.env["DATABASE URL"] ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  NEON_DEFAULT_URL;
 let connectionString = rawConnectionString.trim().replace(/^["']|["']$/g, "");
 // Strip channel_binding if present since node-postgres doesn't support SCRAM channel binding
 connectionString = connectionString.replace(/([?&])channel_binding=[^&]*(&|$)/, "$1").replace(/[?&]$/, "");

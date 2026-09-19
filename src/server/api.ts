@@ -10,7 +10,7 @@ function cleanEnv(val: string | undefined, fallback: string): string {
 
 const JWT_SECRET = cleanEnv(process.env.SESSION_SECRET, "skz_jwt_default_secret_key_2026");
 const ADMIN_USER = cleanEnv(process.env.ADMIN_USERNAME, "admin");
-const ADMIN_PASS = cleanEnv(process.env.ADMIN_PASSWORD, "Admin@SKzLab2026#");
+const ADMIN_PASS = cleanEnv(process.env.ADMIN_PASSWORD, "Admin@SKzLab2026");
 
 export interface OrderData {
   id: string;
