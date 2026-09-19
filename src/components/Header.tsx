@@ -15,13 +15,13 @@ export const Header = () => {
             <Gamepad2 className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="font-display text-xl font-extrabold tracking-tight">
-            SKz<span className="text-gradient-primary">LAB</span>
+            <span className="text-gradient-primary">SKz</span><span className="text-foreground">LOOT</span><span className="text-gradient-primary">LAB</span>
           </span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
           <Link to="/" className="hover:text-primary transition">Home</Link>
-          <a href="/#top-ups" className="hover:text-primary transition">Top-Ups</a>
+          <Link to="/" hash="top-ups" className="hover:text-primary transition">Top-Ups</Link>
           <Link to="/products" className="hover:text-primary transition">Gadgets</Link>
           <Link to="/contact" className="hover:text-primary transition">Contact</Link>
           {isAdmin && (
@@ -46,7 +46,7 @@ export const Header = () => {
             className="flex items-center gap-2 rounded-xl bg-gradient-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-glow hover:opacity-90 transition"
           >
             <User className="h-4 w-4" />
-            <span>{user ? user.name.split(" ")[0] : "Account"}</span>
+            <span>{user?.name ? user.name.split(" ")[0] : "Account"}</span>
           </Link>
         </div>
       </div>
