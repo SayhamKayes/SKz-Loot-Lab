@@ -1,4 +1,3 @@
-import "dotenv/config";
 import pg from "pg";
 import { games as initialGames } from "../lib/games";
 
