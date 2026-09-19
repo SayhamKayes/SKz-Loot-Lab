@@ -382,7 +382,7 @@ function AdminPage() {
                 <input
                   required
                   type={showPassword ? "text" : "password"}
-                  placeholder="Admin@SKzLab2026#"
+                  placeholder="Admin@SKzLab2026"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-800/80 pl-10 pr-10 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500"

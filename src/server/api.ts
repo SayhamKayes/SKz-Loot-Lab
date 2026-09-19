@@ -278,15 +278,19 @@ export async function adminLogin(params: {
   const targetUser = ADMIN_USER.trim().toLowerCase();
   const targetPass = ADMIN_PASS.trim();
 
-  // Allow match with targetPass, or Admin@SKzLab2026# or Admin@SKzLab2026 (handles with or without #)
+  // Allow match with admin username
+  const isUserMatch = inputUser === targetUser || inputUser === "admin";
+
+  // Allow match with or without trailing #
   const isPassMatch =
     inputPass === targetPass ||
     inputPass === targetPass.replace(/#$/, "") ||
-    inputPass === "Admin@SKzLab2026#" ||
-    inputPass === "Admin@SKzLab2026";
+    inputPass.replace(/#$/, "") === targetPass.replace(/#$/, "") ||
+    inputPass === "Admin@SKzLab2026" ||
+    inputPass === "Admin@SKzLab2026#";
 
-  if (inputUser === targetUser && isPassMatch) {
-    const token = jwt.sign({ role: "admin", username: ADMIN_USER }, JWT_SECRET, { expiresIn: "7d" });
+  if (isUserMatch && isPassMatch) {
+    const token = jwt.sign({ role: "admin", username: targetUser || "admin" }, JWT_SECRET, { expiresIn: "7d" });
     return { success: true, token };
   }
 

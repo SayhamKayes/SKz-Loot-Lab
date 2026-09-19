@@ -139,7 +139,7 @@ function sanitizeError(err: any, fallback: string): string {
         localStorage.setItem("skz_admin_token", res.token);
         return { success: true };
       }
-      return { success: false, error: res?.error || "Invalid credentials" };
+      return { success: false, error: res?.error || "Invalid Admin Username or Password" };
     } catch (err: any) {
       return { success: false, error: sanitizeError(err, "Admin login error") };
     }
