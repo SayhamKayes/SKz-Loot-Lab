@@ -94,14 +94,14 @@ function sanitizeError(err: any, fallback: string): string {
   const login = async (identifier: string, pass: string) => {
     try {
       const res = await loginUserFn({ data: { identifier, password: pass } });
-      if (res.success && res.user && res.token) {
+      if (res?.success && res?.user && res?.token) {
         setUser(res.user);
         setToken(res.token);
         localStorage.setItem("skz_user_token", res.token);
         localStorage.setItem("skz_user_profile", JSON.stringify(res.user));
         return { success: true };
       }
-      return { success: false, error: res.error || "Login failed" };
+      return { success: false, error: res?.error || "Login failed" };
     } catch (err: any) {
       return { success: false, error: sanitizeError(err, "Network error") };
     }
@@ -110,14 +110,14 @@ function sanitizeError(err: any, fallback: string): string {
   const register = async (name: string, email: string, phone: string, pass: string) => {
     try {
       const res = await registerUserFn({ data: { name, email, phone, password: pass } });
-      if (res.success && res.user && res.token) {
+      if (res?.success && res?.user && res?.token) {
         setUser(res.user);
         setToken(res.token);
         localStorage.setItem("skz_user_token", res.token);
         localStorage.setItem("skz_user_profile", JSON.stringify(res.user));
         return { success: true };
       }
-      return { success: false, error: res.error || "Registration failed" };
+      return { success: false, error: res?.error || "Registration failed" };
     } catch (err: any) {
       return { success: false, error: sanitizeError(err, "Network error") };
     }
@@ -133,13 +133,13 @@ function sanitizeError(err: any, fallback: string): string {
   const adminLoginHandler = async (username: string, pass: string) => {
     try {
       const res = await adminLoginFn({ data: { username, password: pass } });
-      if (res.success && res.token) {
+      if (res?.success && res?.token) {
         setAdminToken(res.token);
         setIsAdmin(true);
         localStorage.setItem("skz_admin_token", res.token);
         return { success: true };
       }
-      return { success: false, error: res.error || "Invalid credentials" };
+      return { success: false, error: res?.error || "Invalid credentials" };
     } catch (err: any) {
       return { success: false, error: sanitizeError(err, "Admin login error") };
     }
