@@ -83,6 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+function sanitizeError(err: any, fallback: string): string {
+  const msg = err?.message || "";
+  if (typeof msg === "string" && (msg.includes("<!doctype") || msg.includes("<html") || msg.includes("This page didn't load"))) {
+    return "Server or Database connection is offline. Please verify DATABASE_URL in .env (Neon / PostgreSQL).";
+  }
+  return msg || fallback;
+}
+
   const login = async (identifier: string, pass: string) => {
     try {
       const res = await loginUserFn({ data: { identifier, password: pass } });
@@ -95,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: false, error: res.error || "Login failed" };
     } catch (err: any) {
-      return { success: false, error: err.message || "Network error" };
+      return { success: false, error: sanitizeError(err, "Network error") };
     }
   };
 
@@ -111,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: false, error: res.error || "Registration failed" };
     } catch (err: any) {
-      return { success: false, error: err.message || "Network error" };
+      return { success: false, error: sanitizeError(err, "Network error") };
     }
   };
 
@@ -133,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: false, error: res.error || "Invalid credentials" };
     } catch (err: any) {
-      return { success: false, error: err.message || "Admin login error" };
+      return { success: false, error: sanitizeError(err, "Admin login error") };
     }
   };
 
