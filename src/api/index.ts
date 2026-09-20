@@ -19,7 +19,22 @@ export const loginUserFn = createServerFn({ method: "POST" })
 export const verifyUserTokenFn = createServerFn({ method: "POST" })
   .inputValidator((data: { token: string }) => data)
   .handler(async ({ data }) => {
-    return serverApi.verifyUserToken(data.token);
+    return await serverApi.verifyUserToken(data.token);
+  });
+
+export const updateUserProfileFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      userId: number;
+      name: string;
+      email: string;
+      phone: string;
+      currentPassword?: string;
+      newPassword?: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    return await serverApi.updateUserProfile(data);
   });
 
 // ==================== ADMIN AUTH ====================
@@ -34,6 +49,27 @@ export const adminVerifyFn = createServerFn({ method: "POST" })
   .inputValidator((data: { token: string }) => data)
   .handler(async ({ data }) => {
     return serverApi.verifyAdminToken(data.token);
+  });
+
+export const getAdminProfileFn = createServerFn({ method: "GET" }).handler(async () => {
+  return await serverApi.getAdminProfile();
+});
+
+export const updateAdminProfileFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      username: string;
+      email: string;
+      social_facebook?: string;
+      social_youtube?: string;
+      social_discord?: string;
+      social_telegram?: string;
+      currentPassword?: string;
+      newPassword?: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    return await serverApi.updateAdminProfile(data);
   });
 
 // ==================== PUBLIC & CMS GAMES ====================
