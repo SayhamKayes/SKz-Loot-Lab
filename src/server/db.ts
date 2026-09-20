@@ -182,7 +182,15 @@ async function seedDefaultSettings() {
     { key: "nagad_number", value: process.env.NAGAD_NUMBER || "01800000000" },
     { key: "rocket_number", value: process.env.ROCKET_NUMBER || "01900000000" },
     { key: "support_whatsapp", value: process.env.SUPPORT_WHATSAPP || "8801700000000" },
+    { key: "hotline_number", value: process.env.HOTLINE_NUMBER || "+880 9600-000000" },
+    { key: "support_email", value: process.env.SUPPORT_EMAIL || "support@skzlab.com" },
     { key: "notice", value: "Send Money to our official personal/merchant numbers. Put the last 4 digits of sender number and exact TrxID below." },
+    { key: "social_facebook", value: "https://facebook.com" },
+    { key: "social_youtube", value: "https://youtube.com" },
+    { key: "social_discord", value: "https://discord.gg" },
+    { key: "social_telegram", value: "https://t.me/skzlab" },
+    { key: "admin_username", value: "admin" },
+    { key: "admin_email", value: "admin@skzlab.com" },
   ];
 
   for (const item of defaults) {
