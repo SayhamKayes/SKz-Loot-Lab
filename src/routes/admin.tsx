@@ -43,6 +43,8 @@ import {
   adminDeletePackageFn,
   getSiteSettingsFn,
   updateSiteSettingsFn,
+  getAdminProfileFn,
+  updateAdminProfileFn,
 } from "@/api";
 
 export const Route = createFileRoute("/admin")({
@@ -66,7 +68,7 @@ function AdminPage() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Active admin tab (Dashboard first)
-  const [tab, setTab] = useState<"dashboard" | "orders" | "games" | "settings">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "orders" | "games" | "settings" | "profile">("dashboard");
 
   // Orders State
   const [orders, setOrders] = useState<any[]>([]);
@@ -115,10 +117,29 @@ function AdminPage() {
     nagad_number: "",
     rocket_number: "",
     support_whatsapp: "",
+    hotline_number: "",
+    support_email: "",
     notice: "",
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
+
+  // Admin Profile & Security State
+  const [adminProfile, setAdminProfile] = useState({
+    username: "",
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+    social_facebook: "",
+    social_youtube: "",
+    social_discord: "",
+    social_telegram: "",
+  });
+  const [loadingAdminProfile, setLoadingAdminProfile] = useState(false);
+  const [savingAdminProfile, setSavingAdminProfile] = useState(false);
+  const [adminProfileSuccess, setAdminProfileSuccess] = useState("");
+  const [adminProfileError, setAdminProfileError] = useState("");
 
   // Custom Delete Confirmation Modal State
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -144,8 +165,90 @@ function AdminPage() {
       loadOrders();
       loadGames();
       loadSettings();
+      loadAdminProfile();
     }
   }, [isAdmin]);
+
+  const loadAdminProfile = async () => {
+    setLoadingAdminProfile(true);
+    try {
+      const profile = await getAdminProfileFn();
+      if (profile) {
+        setAdminProfile((prev) => ({
+          ...prev,
+          username: profile.username || "admin",
+          email: profile.email || "admin@skzlab.com",
+          social_facebook: profile.social_facebook || "",
+          social_youtube: profile.social_youtube || "",
+          social_discord: profile.social_discord || "",
+          social_telegram: profile.social_telegram || "",
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load admin profile:", e);
+    } finally {
+      setLoadingAdminProfile(false);
+    }
+  };
+
+  const handleSaveAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminProfileError("");
+    setAdminProfileSuccess("");
+
+    if (!adminProfile.username.trim() || !adminProfile.email.trim()) {
+      setAdminProfileError("Admin username and email are required.");
+      return;
+    }
+
+    if (adminProfile.newPassword) {
+      if (adminProfile.newPassword.length < 6) {
+        setAdminProfileError("New password must be at least 6 characters long.");
+        return;
+      }
+      if (adminProfile.newPassword !== adminProfile.confirmPassword) {
+        setAdminProfileError("New passwords do not match.");
+        return;
+      }
+      if (!adminProfile.currentPassword) {
+        setAdminProfileError("Please enter your current admin password to set a new password.");
+        return;
+      }
+    }
+
+    setSavingAdminProfile(true);
+    try {
+      const res = await updateAdminProfileFn({
+        data: {
+          username: adminProfile.username,
+          email: adminProfile.email,
+          social_facebook: adminProfile.social_facebook,
+          social_youtube: adminProfile.social_youtube,
+          social_discord: adminProfile.social_discord,
+          social_telegram: adminProfile.social_telegram,
+          currentPassword: adminProfile.currentPassword || undefined,
+          newPassword: adminProfile.newPassword || undefined,
+        },
+      });
+
+      if (res?.success) {
+        setAdminProfileSuccess("Admin profile & credentials updated successfully!");
+        setAdminProfile((prev) => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+        setTimeout(() => setAdminProfileSuccess(""), 4000);
+      } else {
+        setAdminProfileError(res?.error || "Failed to update admin profile.");
+      }
+    } catch (err: any) {
+      setAdminProfileError(err?.message || "Failed to update admin profile.");
+    } finally {
+      setSavingAdminProfile(false);
+    }
+  };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -481,13 +584,23 @@ function AdminPage() {
             </button>
             <button
               onClick={() => setTab("settings")}
-              className={`py-3.5 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 border-b-2 transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                 tab === "settings"
                   ? "border-red-500 text-red-400"
                   : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
               <Settings className="h-4 w-4" /> MFS & System Settings
+            </button>
+            <button
+              onClick={() => setTab("profile")}
+              className={`py-3.5 border-b-2 transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                tab === "profile"
+                  ? "border-red-500 text-red-400"
+                  : "border-transparent text-slate-400 hover:text-white"
+              }`}
+            >
+              <User className="h-4 w-4" /> Profile & Security
             </button>
           </div>
         </div>
@@ -1598,6 +1711,28 @@ function AdminPage() {
               </div>
 
               <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-blue-400">Official Hotline Number</label>
+                <input
+                  type="text"
+                  value={settings.hotline_number || ""}
+                  onChange={(e) => setSettings({ ...settings, hotline_number: e.target.value })}
+                  placeholder="+880 9600-000000"
+                  className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-cyan-400">Official Support / Contact Email</label>
+                <input
+                  type="email"
+                  value={settings.support_email || ""}
+                  onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
+                  placeholder="support@skzlab.com"
+                  className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Notice on Checkout Screen</label>
                 <textarea
                   rows={3}
@@ -1611,10 +1746,202 @@ function AdminPage() {
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 py-3 font-display text-sm font-bold uppercase text-white shadow-lg shadow-red-600/20 hover:opacity-95 transition disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 py-3 font-display text-sm font-bold uppercase text-white shadow-lg shadow-red-600/20 hover:opacity-95 transition disabled:opacity-50 cursor-pointer"
               >
                 {savingSettings ? "Saving..." : "Save Settings to Database"}
               </button>
+            </form>
+          </div>
+        )}
+
+        {/* ================= TAB 4: PROFILE & SECURITY ================= */}
+        {tab === "profile" && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div>
+              <h2 className="font-display text-2xl font-black uppercase text-white">Admin Profile & Security</h2>
+              <p className="text-xs text-slate-400">
+                Update admin login credentials, password, and official social media profiles
+              </p>
+            </div>
+
+            {adminProfileSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400"
+              >
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{adminProfileSuccess}</span>
+              </motion.div>
+            )}
+
+            {adminProfileError && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-400"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{adminProfileError}</span>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleSaveAdminProfile} className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 space-y-6 shadow-xl">
+              {/* Credentials */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-2">
+                  <User className="h-4 w-4" /> Admin Login Credentials
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Admin Username</label>
+                    <input
+                      required
+                      type="text"
+                      value={adminProfile.username}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, username: e.target.value })}
+                      placeholder="admin"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Admin Email</label>
+                    <input
+                      required
+                      type="email"
+                      value={adminProfile.email}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, email: e.target.value })}
+                      placeholder="admin@skzlab.com"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password change */}
+              <div className="pt-4 border-t border-slate-800 space-y-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                    <Lock className="h-4 w-4" /> Change Admin Password
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Leave blank if you do not wish to change your admin password.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Current Admin Password</label>
+                  <input
+                    type="password"
+                    value={adminProfile.currentPassword}
+                    onChange={(e) => setAdminProfile({ ...adminProfile, currentPassword: e.target.value })}
+                    placeholder="Enter current password to authorize change"
+                    className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">New Password</label>
+                    <input
+                      type="password"
+                      value={adminProfile.newPassword}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, newPassword: e.target.value })}
+                      placeholder="At least 6 characters"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={adminProfile.confirmPassword}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, confirmPassword: e.target.value })}
+                      placeholder="Re-type new password"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Media Profiles */}
+              <div className="pt-4 border-t border-slate-800 space-y-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-2">
+                    <Send className="h-4 w-4" /> Official Social Media Profiles
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Configure your official links displayed across the footer and contact sections.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Facebook Page / Group</label>
+                    <input
+                      type="url"
+                      value={adminProfile.social_facebook}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, social_facebook: e.target.value })}
+                      placeholder="https://facebook.com/skzlab"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">YouTube Channel</label>
+                    <input
+                      type="url"
+                      value={adminProfile.social_youtube}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, social_youtube: e.target.value })}
+                      placeholder="https://youtube.com/@skzlab"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Discord Community</label>
+                    <input
+                      type="url"
+                      value={adminProfile.social_discord}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, social_discord: e.target.value })}
+                      placeholder="https://discord.gg/skzlab"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Telegram Channel / Support</label>
+                    <input
+                      type="url"
+                      value={adminProfile.social_telegram}
+                      onChange={(e) => setAdminProfile({ ...adminProfile, social_telegram: e.target.value })}
+                      placeholder="https://t.me/skzlab"
+                      className="w-full mt-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingAdminProfile}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 py-3 font-display text-sm font-bold uppercase text-white shadow-lg shadow-red-600/20 hover:opacity-95 transition disabled:opacity-50 cursor-pointer"
+                >
+                  {savingAdminProfile ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" /> Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" /> Save Admin Profile & Security
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         )}
