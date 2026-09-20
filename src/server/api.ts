@@ -55,7 +55,15 @@ let memorySettings: Record<string, string> = {
   nagad_number: process.env.NAGAD_NUMBER || "01800000000",
   rocket_number: process.env.ROCKET_NUMBER || "01900000000",
   support_whatsapp: process.env.SUPPORT_WHATSAPP || "8801700000000",
+  hotline_number: process.env.HOTLINE_NUMBER || "+880 9600-000000",
+  support_email: process.env.SUPPORT_EMAIL || "support@skzlab.com",
   notice: "Send Money to our official personal numbers. Enter Sender Phone & TrxID below to verify.",
+  social_facebook: "https://facebook.com",
+  social_youtube: "https://youtube.com",
+  social_discord: "https://discord.gg",
+  social_telegram: "https://t.me/skzlab",
+  admin_username: "admin",
+  admin_email: "admin@skzlab.com",
 };
 
 const memoryOrders: OrderData[] = [
@@ -169,9 +177,11 @@ export async function registerUser(params: {
       );
 
       const user: SafeUser = result.rows[0];
-      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-        expiresIn: "30d",
-      });
+      const token = jwt.sign(
+        { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
+        JWT_SECRET,
+        { expiresIn: "30d" }
+      );
 
       return { success: true, user, token };
     } catch (err: any) {
@@ -189,9 +199,11 @@ export async function registerUser(params: {
     role: "user",
     created_at: new Date().toISOString(),
   };
-  const token = jwt.sign({ id: mockUser.id, email: mockUser.email, role: mockUser.role }, JWT_SECRET, {
-    expiresIn: "30d",
-  });
+  const token = jwt.sign(
+    { id: mockUser.id, name: mockUser.name, email: mockUser.email, phone: mockUser.phone, role: mockUser.role },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
   return { success: true, user: mockUser, token };
 }
 
@@ -234,9 +246,11 @@ export async function loginUser(params: {
         created_at: dbUser.created_at,
       };
 
-      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-        expiresIn: "30d",
-      });
+      const token = jwt.sign(
+        { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
+        JWT_SECRET,
+        { expiresIn: "30d" }
+      );
 
       return { success: true, user, token };
     } catch (err: any) {
@@ -248,9 +262,33 @@ export async function loginUser(params: {
   return { success: false, error: "Database is connecting. Please retry in a moment." };
 }
 
-export function verifyUserToken(token: string): SafeUser | null {
+export async function verifyUserToken(token: string): Promise<SafeUser | null> {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (!decoded || !decoded.id) return null;
+
+    if (checkDbStatus()) {
+      try {
+        const res = await query(
+          "SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1",
+          [decoded.id]
+        );
+        if (res.rows.length > 0) {
+          const row = res.rows[0];
+          return {
+            id: row.id,
+            name: row.name || decoded.name || "User",
+            email: row.email || decoded.email,
+            phone: row.phone || decoded.phone || "",
+            role: row.role || decoded.role || "user",
+            created_at: row.created_at,
+          };
+        }
+      } catch (err) {
+        console.error("verifyUserToken DB error:", err);
+      }
+    }
+
     return {
       id: decoded.id,
       name: decoded.name || "User",
@@ -261,6 +299,122 @@ export function verifyUserToken(token: string): SafeUser | null {
   } catch {
     return null;
   }
+}
+
+export async function updateUserProfile(params: {
+  userId: number;
+  name: string;
+  email: string;
+  phone: string;
+  currentPassword?: string;
+  newPassword?: string;
+}): Promise<{ success: boolean; user?: SafeUser; token?: string; error?: string }> {
+  await initDatabase();
+
+  const { userId, name, email, phone, currentPassword, newPassword } = params;
+  if (!userId || !name || !email || !phone) {
+    return { success: false, error: "Name, email, and phone number are required" };
+  }
+
+  const cleanName = name.trim();
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanPhone = phone.trim();
+
+  if (checkDbStatus()) {
+    try {
+      // Check existing email or phone for other users
+      const existing = await query(
+        "SELECT id, email, phone FROM users WHERE (email = $1 OR phone = $2) AND id != $3",
+        [cleanEmail, cleanPhone, userId]
+      );
+
+      if (existing.rows.length > 0) {
+        if (existing.rows[0].email === cleanEmail) {
+          return { success: false, error: "This email address is already in use by another account" };
+        }
+        return { success: false, error: "This phone number is already in use by another account" };
+      }
+
+      // If user wants to change password
+      if (newPassword && newPassword.trim()) {
+        if (newPassword.length < 6) {
+          return { success: false, error: "New password must be at least 6 characters long" };
+        }
+        if (!currentPassword) {
+          return { success: false, error: "Please enter your current password to set a new password" };
+        }
+
+        const userRow = await query("SELECT password_hash FROM users WHERE id = $1", [userId]);
+        if (userRow.rows.length === 0) {
+          return { success: false, error: "User not found" };
+        }
+        const valid = await bcrypt.compare(currentPassword, userRow.rows[0].password_hash);
+        if (!valid) {
+          return { success: false, error: "Current password does not match" };
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const newHash = await bcrypt.hash(newPassword, salt);
+
+        const result = await query(
+          `UPDATE users
+           SET name = $1, email = $2, phone = $3, password_hash = $4, updated_at = NOW()
+           WHERE id = $5
+           RETURNING id, name, email, phone, role, created_at`,
+          [cleanName, cleanEmail, cleanPhone, newHash, userId]
+        );
+
+        const updatedUser: SafeUser = result.rows[0];
+        const token = jwt.sign(
+          { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, phone: updatedUser.phone, role: updatedUser.role },
+          JWT_SECRET,
+          { expiresIn: "30d" }
+        );
+
+        return { success: true, user: updatedUser, token };
+      }
+
+      // Update without password change
+      const result = await query(
+        `UPDATE users
+         SET name = $1, email = $2, phone = $3, updated_at = NOW()
+         WHERE id = $4
+         RETURNING id, name, email, phone, role, created_at`,
+        [cleanName, cleanEmail, cleanPhone, userId]
+      );
+
+      if (result.rows.length === 0) {
+        return { success: false, error: "User not found" };
+      }
+
+      const updatedUser: SafeUser = result.rows[0];
+      const token = jwt.sign(
+        { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, phone: updatedUser.phone, role: updatedUser.role },
+        JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+
+      return { success: true, user: updatedUser, token };
+    } catch (err: any) {
+      console.error("Update profile DB error:", err);
+      return { success: false, error: "Database error: " + err.message };
+    }
+  }
+
+  // Offline mock update
+  const mockUpdated: SafeUser = {
+    id: userId,
+    name: cleanName,
+    email: cleanEmail,
+    phone: cleanPhone,
+    role: "user",
+  };
+  const token = jwt.sign(
+    { id: mockUpdated.id, name: mockUpdated.name, email: mockUpdated.email, phone: mockUpdated.phone, role: mockUpdated.role },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
+  return { success: true, user: mockUpdated, token };
 }
 
 // ==================== ADMIN AUTH ====================
@@ -276,7 +430,30 @@ export async function adminLogin(params: {
   const inputUser = (username || "").trim().toLowerCase();
   const inputPass = (password || "").trim();
 
-  // Acceptable admin usernames
+  // 1. Check custom admin credentials from settings table if configured
+  try {
+    const siteSettings = await getSiteSettings();
+    const customUser = (siteSettings.admin_username || "").trim().toLowerCase();
+    const customPassHash = siteSettings.admin_password_hash;
+    const customPassPlain = siteSettings.admin_password;
+
+    if (customUser && inputUser === customUser) {
+      if (customPassHash) {
+        const match = await bcrypt.compare(inputPass, customPassHash);
+        if (match) {
+          const token = jwt.sign({ role: "admin", username: customUser }, JWT_SECRET, { expiresIn: "7d" });
+          return { success: true, token };
+        }
+      } else if (customPassPlain && inputPass === customPassPlain) {
+        const token = jwt.sign({ role: "admin", username: customUser }, JWT_SECRET, { expiresIn: "7d" });
+        return { success: true, token };
+      }
+    }
+  } catch (e) {
+    console.error("Custom admin credentials check error:", e);
+  }
+
+  // 2. Acceptable default admin usernames
   const allowedUsernames = new Set([
     "admin",
     ADMIN_USER.trim().toLowerCase(),
@@ -308,7 +485,7 @@ export async function adminLogin(params: {
     return { success: true, token };
   }
 
-  // Also check database if any user has role 'admin'
+  // 3. Also check database if any user has role 'admin'
   if (checkDbStatus()) {
     try {
       const res = await query(
@@ -338,6 +515,109 @@ export function verifyAdminToken(token: string): boolean {
   } catch {
     return false;
   }
+}
+
+export async function getAdminProfile(): Promise<{
+  username: string;
+  email: string;
+  social_facebook: string;
+  social_youtube: string;
+  social_discord: string;
+  social_telegram: string;
+}> {
+  const siteSettings = await getSiteSettings();
+  return {
+    username: siteSettings.admin_username || "admin",
+    email: siteSettings.admin_email || "admin@skzlab.com",
+    social_facebook: siteSettings.social_facebook || "",
+    social_youtube: siteSettings.social_youtube || "",
+    social_discord: siteSettings.social_discord || "",
+    social_telegram: siteSettings.social_telegram || "",
+  };
+}
+
+export async function updateAdminProfile(params: {
+  username: string;
+  email: string;
+  social_facebook?: string;
+  social_youtube?: string;
+  social_discord?: string;
+  social_telegram?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  await initDatabase();
+
+  const {
+    username,
+    email,
+    social_facebook,
+    social_youtube,
+    social_discord,
+    social_telegram,
+    currentPassword,
+    newPassword,
+  } = params;
+
+  if (!username || !username.trim()) {
+    return { success: false, error: "Admin username is required" };
+  }
+  if (!email || !email.trim()) {
+    return { success: false, error: "Admin email is required" };
+  }
+
+  const cleanUsername = username.trim();
+  const cleanEmail = email.trim().toLowerCase();
+
+  const currentSettings = await getSiteSettings();
+
+  const updates: Record<string, string> = {
+    admin_username: cleanUsername,
+    admin_email: cleanEmail,
+    social_facebook: social_facebook || "",
+    social_youtube: social_youtube || "",
+    social_discord: social_discord || "",
+    social_telegram: social_telegram || "",
+  };
+
+  // If changing password
+  if (newPassword && newPassword.trim()) {
+    if (newPassword.length < 6) {
+      return { success: false, error: "New password must be at least 6 characters long" };
+    }
+    if (!currentPassword) {
+      return { success: false, error: "Please enter your current admin password to set a new password" };
+    }
+
+    let isCurrentValid = false;
+    if (currentSettings.admin_password_hash) {
+      isCurrentValid = await bcrypt.compare(currentPassword, currentSettings.admin_password_hash);
+    } else {
+      const allowedPasswords = new Set([
+        "admin@skzlab2026",
+        "admin@skzlab2026#",
+        "Admin@SKzLab2026",
+        "Admin@SKzLab2026#",
+        ADMIN_PASS,
+        ADMIN_PASS.replace(/#$/, ""),
+      ]);
+      isCurrentValid =
+        allowedPasswords.has(currentPassword) ||
+        allowedPasswords.has(currentPassword.toLowerCase()) ||
+        allowedPasswords.has(currentPassword.replace(/#$/, ""));
+    }
+
+    if (!isCurrentValid) {
+      return { success: false, error: "Current admin password is incorrect" };
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+    updates.admin_password_hash = newHash;
+  }
+
+  await updateSiteSettings(updates);
+  return { success: true };
 }
 
 // ==================== GAMES & PACKAGES CMS ====================
